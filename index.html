@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YONCA AI</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0b100e; color: #f1f7f2; font-family: Arial, sans-serif; }
+        button { cursor: pointer; font: inherit; }
+        .app { display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 270px; min-width: 270px; background: #101914; border-right: 1px solid #26372c; padding: 24px 16px; display: flex; flex-direction: column; }
+        .brand { color: #8ce3a6; font-size: 23px; font-weight: bold; margin-bottom: 28px; }
+        .new-chat { background: #17231b; color: white; border: 1px solid #304438; border-radius: 11px; padding: 13px; text-align: left; transition: 0.2s; }
+        .new-chat:hover { background: #24402e; }
+        .history-title { color: #829187; font-size: 11px; letter-spacing: 1.5px; margin: 28px 0 13px; }
+        .history-list { flex: 1; overflow-y: auto; }
+        .history-item { display: flex; align-items: center; gap: 7px; width: 100%; padding: 11px; margin-bottom: 5px; border: none; border-radius: 9px; background: transparent; color: #aebbb1; text-align: left; }
+        .history-item:hover, .history-item.active { background: #203328; color: #8ce3a6; }
+        .history-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .delete-chat { flex: none; padding: 5px; border: none; background: transparent; color: #849188; }
+        .delete-chat:hover { color: #ff7777; }
+        .sidebar-footer { border-top: 1px solid #26372c; padding-top: 16px; color: #a9c5af; font-size: 13px; }
+        .sidebar-footer small { display: block; margin-top: 6px; color: #78877d; }
+        .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        header { height: 62px; min-height: 62px; border-bottom: 1px solid #26372c; display: flex; align-items: center; justify-content: flex-end; padding: 0 28px; color: #819187; font-size: 13px; }
+        .mobile-logo { display: none; }
+        .chat { flex: 1; padding: 30px 6%; overflow-y: auto; display: flex; flex-direction: column; }
+        .welcome { margin: auto; text-align: center; }
+        .logo { font-size: 55px; margin-bottom: 20px; }
+        .welcome h1 { font-size: 29px; margin-bottom: 12px; }
+        .welcome p { color: #89988e; }
+        .message { width: fit-content; max-width: min(75%, 680px); padding: 13px 17px; border-radius: 15px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; margin: 9px 0; }
+        .user { align-self: flex-end; background: #203a29; border: 1px solid #31543b; }
+        .bot { align-self: flex-start; background: #17221b; border: 1px solid #304438; }
+        .composer { width: min(780px, 88%); margin: 15px auto 8px; display: grid; grid-template-columns: 1fr 48px; gap: 10px; align-items: end; }
+        textarea { background: #17211a; color: white; border: 1px solid #385440; border-radius: 14px; padding: 17px; resize: none; min-height: 56px; max-height: 160px; font: inherit; outline: none; }
+        textarea:focus { border-color: #69c985; }
+        .send { height: 56px; background: #55bd75; color: #08140b; font-size: 23px; border: none; border-radius: 13px; transition: 0.2s; }
+        .send:hover { background: #75d993; }
+        .send:disabled { background: #304438; color: #78877d; cursor: not-allowed; }
+        .bottom-note { text-align: center; color: #718076; font-size: 11px; padding: 8px 10px 15px; }
+        @media (max-width: 650px) {
+          .sidebar { display: none; }
+          .mobile-logo { display: block; color: #8ce3a6; font-weight: bold; }
+          header { justify-content: space-between; padding: 0 16px; }
+          .chat { padding: 20px 15px; }
+          .message { max-width: 90%; }
+          .welcome h1 { font-size: 23px; }
+          .composer { width: 94%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <aside class="sidebar">
+        <div class="brand">🍀 YONCA AI</div>
+        <button class="new-chat" onclick="createNewChat()">+ Yeni Sohbet</button>
+        <div class="history-title">SOHBET GEÇMİŞİ</div>
+        <div class="history-list" id="history-list"></div>
+        <div class="sidebar-footer">
+            YONCA AI v1.0
+            <small>Akıllı Web Asistanı</small>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header>
+            <div class="mobile-logo">🍀 YONCA AI</div>
+            <div>Çevrimiçi 🟢</div>
+        </header>
+
+        <div class="chat" id="chat-box">
+            <div class="welcome" id="welcome-screen">
+                <div class="logo">🍀</div>
+                <h1>Merhaba, ben YONCA AI</h1>
+                <p>Bana aklındaki her şeyi sorabilirsin. Nasıl yardımcı olabilirim?</p>
+            </div>
+        </div>
+
+        <div class="composer">
+            <textarea id="user-input" rows="1" placeholder="YONCA AI'a bir mesaj yaz..."></textarea>
+            <button class="send" id="send-btn" onclick="sendMessage()">↑</button>
+        </div>
+        <div class="bottom-note">YONCA AI hata yapabilir, önemli bilgileri kontrol etmeyi unutma.</div>
+    </main>
+</div>
+
+<script>
+    const API_KEY = "AQ.Ab8RN6IyR1eN3dansFeL4n3CwOypvsJptPOc5NCSByRKSVuspA";
+
+    const chatBox = document.getElementById("chat-box");
+    const userInput = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
+    const historyList = document.getElementById("history-list");
+
+    let chats = JSON.parse(localStorage.getItem("yonca_chats")) || [];
+    let currentChatId = null;
+
+    userInput.addEventListener("input", function() {
+        this.style.height = "auto";
+        this.style.height = Math.min(this.scrollHeight, 160) + "px";
+    });
+
+    userInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    function saveChats() {
+        localStorage.setItem("yonca_chats", JSON.stringify(chats));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        historyList.innerHTML = "";
+        chats.forEach(chat => {
+            const item = document.createElement("div");
+            item.className = `history-item ${chat.id === currentChatId ? "active" : ""}`;
+            const titleSpan = document.createElement("span");
+            titleSpan.textContent = chat.title;
+            titleSpan.onclick = () => loadChat(chat.id);
+
+            const delBtn = document.createElement("button");
+            delBtn.className = "delete-chat";
+            delBtn.textContent = "✕";
+            delBtn.onclick = (e) => { e.stopPropagation(); deleteChat(chat.id); };
+
+            item.appendChild(titleSpan);
+            item.appendChild(delBtn);
+            historyList.appendChild(item);
+        });
+    }
+
+    function createNewChat() {
+        currentChatId = null;
+        chatBox.innerHTML = `
+            <div class="welcome" id="welcome-screen">
+                <div class="logo">🍀</div>
+                <h1>Merhaba, ben YONCA AI</h1>
+                <p>Bana aklındaki her şeyi sorabilirsin. Nasıl yardımcı olabilirim?</p>
+            </div>
+        `;
+        renderHistory();
+    }
+
+    function loadChat(id) {
+        const chat = chats.find(c => c.id === id);
+        if (!chat) return;
+        currentChatId = id;
+        chatBox.innerHTML = "";
+        chat.messages.forEach(msg => appendMessageToUI(msg.text, msg.sender));
+        renderHistory();
+    }
+
+    function deleteChat(id) {
+        chats = chats.filter(c => c.id !== id);
+        if (currentChatId === id) createNewChat();
+        saveChats();
+    }
+
+    function appendMessageToUI(text, sender) {
+        const welcome = document.getElementById("welcome-screen");
+        if (welcome) welcome.remove();
+
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `message ${sender}`;
+        msgDiv.textContent = text;
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return msgDiv;
+    }
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        if (!currentChatId) {
+            currentChatId = Date.now().toString();
+            chats.unshift({
+                id: currentChatId,
+                title: text.slice(0, 30) + (text.length > 30 ? "..." : ""),
+                messages: []
+            });
+        }
+
+        const currentChat = chats.find(c => c.id === currentChatId);
+        currentChat.messages.push({ sender: "user", text: text });
+        saveChats();
+
+        appendMessageToUI(text, "user");
+        userInput.value = "";
+        userInput.style.height = "56px";
+        sendBtn.disabled = true;
+
+        const loadingDiv = appendMessageToUI("YONCA AI düşünüyor...", "bot");
+
+        try {
+            const apiContents = currentChat.messages.map(m => ({
+                role: m.sender === "user" ? "user" : "model",
+                parts: [{ text: m.text }]
+            }));
+
+            const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": API_KEY
+                },
+                body: JSON.stringify({
+                    systemInstruction: {
+                        parts: [{ text: "Senin adın YONCA AI. Kullanıcıların her sorusuna samimi, net, akıcı ve yardımcı bir şekilde Türkçe cevap veren akıllı bir yapay zeka asistanısın." }]
+                    },
+                    contents: apiContents
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                loadingDiv.textContent = "API Hatası: " + data.error.message;
+            } else {
+                const reply = data.candidates[0].content.parts[0].text;
+                loadingDiv.textContent = reply;
+                currentChat.messages.push({ sender: "bot", text: reply });
+                saveChats();
+            }
+        } catch (error) {
+            loadingDiv.textContent = "Bağlantı Hatası: " + error.message;
+        } finally {
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+    }
+
+    renderHistory();
+</script>
+
+</body>
+</html>
